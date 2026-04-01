@@ -11,6 +11,9 @@ ACTIVATION_BUTTON = "button9" # Mouse button
 ACTIVATION_KEY = keyboard.Key.space
 WATERING_CAN_SLOT = 4
 
+# EXIT_SHORTCUT uses pynput syntax: <ctrl>, <alt>, <shift>, etc.
+EXIT_SHORTCUT = "<ctrl>+q"
+
 # Detect session type (Wayland or X11)
 session_type = os.environ.get("XDG_SESSION_TYPE", "x11").lower()
 socket_path = os.environ.get("YDOTOOL_SOCKET", "/run/user/1000/.ydotool_socket")
@@ -94,11 +97,11 @@ def on_press(key):
                 current_slot = int(char) if char != '0' else 10
         with state_lock:
             if char == 'w':
-                wait_frames = 10 if current_slot == WATERING_CAN_SLOT else 6
+                wait_frames = 11 if current_slot == WATERING_CAN_SLOT else 7
             elif char == 's':
-                wait_frames = 10
+                wait_frames = 11
             elif char in ('a', 'd'):
-                wait_frames = 11 if current_slot == WATERING_CAN_SLOT else 5
+                wait_frames = 11 if current_slot == WATERING_CAN_SLOT else 7
     except AttributeError:
         pass
 
