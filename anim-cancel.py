@@ -60,20 +60,23 @@ def cancel_anim():
     with state_lock:
         frames = wait_frames
 
-    # 1. Left Click (Tool action)
+    # Left Click (Tool action)
     send_cmd("key 272:1")
-    time.sleep(0.03)
+    time.sleep(0.05)
     send_cmd("key 272:0")
+    
+    # Small safety gap to ensure the game registers the swing direction
+    time.sleep(0.02)
 
-    # 2. Dynamic wait
+    # Dynamic wait
     time.sleep(frames * 0.014)
 
-    # 3. Animation Cancel: R (19) + Del (111) + RShift (54)
+    # Animation Cancel: R (19) + Del (111) + RShift (54)
     send_cmd("key 19:1 111:1 54:1")
-    time.sleep(0.04)
+    time.sleep(0.06)
     send_cmd("key 19:0 111:0 54:0")
 
-    time.sleep(0.02)
+    time.sleep(0.04)
 
 def macro_loop():
     while True:
@@ -97,11 +100,11 @@ def on_press(key):
                 current_slot = int(char) if char != '0' else 10
         with state_lock:
             if char == 'w':
-                wait_frames = 11 if current_slot == WATERING_CAN_SLOT else 7
+                wait_frames = 7.40 if current_slot == WATERING_CAN_SLOT else 4
             elif char == 's':
-                wait_frames = 11
+                wait_frames = 7.40
             elif char in ('a', 'd'):
-                wait_frames = 11 if current_slot == WATERING_CAN_SLOT else 7
+                wait_frames = 7.40 if current_slot == WATERING_CAN_SLOT else 4
     except AttributeError:
         pass
 
