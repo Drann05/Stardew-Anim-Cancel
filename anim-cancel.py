@@ -13,7 +13,6 @@ socket_path = os.environ.get("YDOTOOL_SOCKET", "/run/user/1000/.ydotool_socket")
 wait_frames = 5
 is_active = threading.Event()      # Thread-safe: replaces the bool is_active
 state_lock = threading.Lock()      # Protects wait_frames and current_slot
-target_button = None
 current_slot = 1
 
 # Pre-calculated env only once instead of copying it at every send_ydo
@@ -102,7 +101,7 @@ def on_scroll(x, y, dx, dy):
             current_slot = 10
 
         # Slot 4 (watering can) requires more frames
-        if current_slot == 4 and wait_frames < 10:
+        if current_slot == WATERING_CAN_SLOT and wait_frames < 10:
             wait_frames = 10
 
 # --- LISTENER START ---
