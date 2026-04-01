@@ -3,9 +3,13 @@ import subprocess
 import threading
 from pynput import keyboard, mouse
 import os
+import math
 
 # --- CONFIGURATION ---
 ACTIVATION_BUTTON = "button9" # Mouse button
+SCREEN_WIDTH = 2560
+SCREEN_HEIGHT = 1440
+CURSOR_DIRECTION_THRESHOLD = 15  # pixel screen, calibra se necessario
 
 # Use keyboard.Key.space for Spacebar, or a string like 'f' for letters
 ACTIVATION_KEY = keyboard.Key.space
@@ -17,6 +21,33 @@ EXIT_SHORTCUT = "<ctrl>+q"
 # Detect session type (Wayland or X11)
 session_type = os.environ.get("XDG_SESSION_TYPE", "x11").lower()
 socket_path = os.environ.get("YDOTOOL_SOCKET", "/run/user/1000/.ydotool_socket")
+
+# approximate user position (screen center by default)
+char_x = SCREEN_WIDTH // 2
+char_y = SCREEN_HEIGHT // 2
+
+cursor_x = SCREEN_WIDTH // 2
+cursor_y = SCREEN_HEIGHT // 2
+
+
+# wait_frames per direction (without watering can)
+FRAMES_BY_DIR = {
+    'up':    4,
+    'down':  7.40,
+    'left':  4,
+    'right': 4,
+}
+
+# wait_frames per direzione con annaffiatoio (slot 4)
+FRAMES_BY_DIR_WATERING = {
+    'up':    7.40,
+    'down':  7.40,
+    'left':  7.40,
+    'right': 7.40,
+}
+
+# Last direction detected from wasd
+last_wasd_dir = 'right'
 
 wait_frames = 5
 is_active = threading.Event()
@@ -57,14 +88,19 @@ def send_cmd(cmd):
 
 def cancel_anim():
     """Executes the Animation Cancel sequence based on current frame timing."""
-    with state_lock:
-        frames = wait_frames
+    frames = get_wait_frames()
+    direction = get_direction_from_cursor()
+    dx = cursor_x - char_x
+    dy = cursor_y - char_y
+    dist = math.sqrt(dx * dx + dy * dy)
+    #print(f"[DEBUG] dir={direction} frames={frames} cursor=({cursor_x},{cursor_y}) char=({char_x},{char_y}) dist={dist:.0f}")
 
     # Left Click (Tool action)
     send_cmd("key 272:1")
     time.sleep(0.05)
     send_cmd("key 272:0")
     
+
     # Small safety gap to ensure the game registers the swing direction
     time.sleep(0.02)
 
@@ -87,10 +123,18 @@ def macro_loop():
 t = threading.Thread(target=macro_loop, daemon=True)
 t.start()
 
+
 # --- INPUT MANAGEMENT ---
 
+def on_move(x, y):
+    """Updates current cursor position"""
+    global cursor_x, cursor_y
+    cursor_x = x
+    cursor_y = y
+
+
 def on_press(key):
-    global wait_frames, current_slot
+    global last_wasd_dir, current_slot
     if key == ACTIVATION_KEY or (hasattr(key, 'char') and key.char == ACTIVATION_KEY):
         is_active.set()
     try:
@@ -98,13 +142,11 @@ def on_press(key):
         if char in '1234567890':
             with state_lock:
                 current_slot = int(char) if char != '0' else 10
-        with state_lock:
-            if char == 'w':
-                wait_frames = 7.40 if current_slot == WATERING_CAN_SLOT else 4
-            elif char == 's':
-                wait_frames = 7.40
-            elif char in ('a', 'd'):
-                wait_frames = 7.40 if current_slot == WATERING_CAN_SLOT else 4
+        # Updates last_wasd_dir
+        dir_map = {'w': 'up', 'a': 'left', 's': 'down', 'd': 'right'}
+        if char in dir_map:
+            with state_lock:
+                last_wasd_dir = dir_map[char]
     except AttributeError:
         pass
 
@@ -120,7 +162,7 @@ def on_click(x, y, button, pressed):
             is_active.clear()
 
 def on_scroll(x, y, dx, dy):
-    global current_slot, wait_frames
+    global current_slot
     with state_lock:
         if dy > 0:
             current_slot -= 1
@@ -128,8 +170,40 @@ def on_scroll(x, y, dx, dy):
             current_slot += 1
         if current_slot > 10: current_slot = 1
         elif current_slot < 1: current_slot = 10
-        if current_slot == WATERING_CAN_SLOT and wait_frames < 10:
-            wait_frames = 10
+
+def get_direction_from_cursor() -> str:
+    """
+    Calcualte the direction based on the position of the cursor from the character.
+    If the cursor is near the character, the direction will be the same as the
+    cursor; otherwise the last direction key will be used (wasd)
+    """
+    dx = cursor_x - char_x
+    dy = cursor_y - char_y
+    dist = math.sqrt(dx * dx + dy * dy)
+
+    if dist < CURSOR_DIRECTION_THRESHOLD:
+        return last_wasd_dir
+
+    angle = math.degrees(math.atan2(dy, dx))
+
+    if 42 <= angle <= 119:
+        return 'down'
+    elif -131 <= angle <= -31:
+        return 'up'
+    elif -31 < angle < 42:
+        return 'right'
+    else:
+        return 'left'
+
+def get_wait_frames() -> float:
+    """Returns the correct wait_frames value based on direction and active slot"""
+    direction = get_direction_from_cursor()
+    with state_lock:
+        slot = current_slot
+    if slot == WATERING_CAN_SLOT:
+        return FRAMES_BY_DIR_WATERING[direction]
+    return FRAMES_BY_DIR[direction]
+
 
 # --- START ---
 print(f"--- STARDEW ANIMATION CANCEL ({session_type.upper()}) ---")
@@ -144,5 +218,5 @@ print("Press CTRL+C to stop.")
 key_listener = keyboard.Listener(on_press=on_press, on_release=on_release)
 key_listener.start()
 
-with mouse.Listener(on_click=on_click, on_scroll=on_scroll) as mouse_listener:
+with mouse.Listener(on_click=on_click, on_scroll=on_scroll, on_move=on_move) as mouse_listener:
     mouse_listener.join()
