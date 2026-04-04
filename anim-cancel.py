@@ -9,7 +9,8 @@ import math
 ACTIVATION_BUTTON = "button9" # Mouse button
 SCREEN_WIDTH = 2560
 SCREEN_HEIGHT = 1440
-CURSOR_DIRECTION_THRESHOLD = 15  # pixel screen, calibra se necessario
+CURSOR_DIRECTION_MIN_THRESHOLD = 15  # pixel screen, calibra se necessario
+CURSOR_DIRECTION_MAX_THRESHOLD= 100
 
 # Use keyboard.Key.space for Spacebar, or a string like 'f' for letters
 ACTIVATION_KEY = keyboard.Key.space
@@ -93,7 +94,7 @@ def cancel_anim():
     dx = cursor_x - char_x
     dy = cursor_y - char_y
     dist = math.sqrt(dx * dx + dy * dy)
-    #print(f"[DEBUG] dir={direction} frames={frames} cursor=({cursor_x},{cursor_y}) char=({char_x},{char_y}) dist={dist:.0f}")
+    print(f"[DEBUG] dir={direction} frames={frames} cursor=({cursor_x},{cursor_y}) char=({char_x},{char_y}) dist={dist:.0f}")
 
     # Left Click (Tool action)
     send_cmd("key 272:1")
@@ -181,7 +182,7 @@ def get_direction_from_cursor() -> str:
     dy = cursor_y - char_y
     dist = math.sqrt(dx * dx + dy * dy)
 
-    if dist < CURSOR_DIRECTION_THRESHOLD:
+    if dist < CURSOR_DIRECTION_MIN_THRESHOLD or dist > CURSOR_DIRECTION_MAX_THRESHOLD:
         return last_wasd_dir
 
     angle = math.degrees(math.atan2(dy, dx))
