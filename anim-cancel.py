@@ -31,6 +31,8 @@ cursor_x = SCREEN_WIDTH // 2
 cursor_y = SCREEN_HEIGHT // 2
 
 
+_DIR_PRIORITY = ['down', 'up', 'right', 'left']
+
 # wait_frames per direction (without watering can)
 FRAMES_BY_DIR = {
     'up':    4,
@@ -47,8 +49,10 @@ FRAMES_BY_DIR_WATERING = {
     'right': 7.40,
 }
 
-# Last direction detected from wasd
-last_wasd_dir = 'right'
+# Currently pressed direction keys
+pressed_dirs = set()
+last_wasd_dir = 'down'  # fallback when no key is pressed
+
 
 wait_frames = 5
 is_active = threading.Event()
@@ -135,7 +139,7 @@ def on_move(x, y):
 
 
 def on_press(key):
-    global last_wasd_dir, current_slot
+    global current_slot, last_wasd_dir
     if key == ACTIVATION_KEY or (hasattr(key, 'char') and key.char == ACTIVATION_KEY):
         is_active.set()
     try:
@@ -147,6 +151,7 @@ def on_press(key):
         dir_map = {'w': 'up', 'a': 'left', 's': 'down', 'd': 'right'}
         if char in dir_map:
             with state_lock:
+                pressed_dirs.add(dir_map[char])
                 last_wasd_dir = dir_map[char]
     except AttributeError:
         pass
@@ -154,6 +159,24 @@ def on_press(key):
 def on_release(key):
     if key == ACTIVATION_KEY or (hasattr(key, 'char') and key.char == ACTIVATION_KEY):
         is_active.clear()
+    try:
+        char = key.char.lower()
+        dir_map = {'w': 'up', 'a': 'left', 's': 'down', 'd': 'right'}
+        if char in dir_map:
+            with state_lock:
+                pressed_dirs.discard(dir_map[char])
+    except AttributeError:
+        pass
+
+def get_wasd_dir() -> str:
+    with state_lock:
+        active = set(pressed_dirs)
+        fallback = last_wasd_dir
+    if not active:
+        return fallback  # fallback neutro
+    for d in _DIR_PRIORITY:
+        if d in active:
+            return d
 
 def on_click(x, y, button, pressed):
     if ACTIVATION_BUTTON in str(button):
@@ -183,7 +206,7 @@ def get_direction_from_cursor() -> str:
     dist = math.sqrt(dx * dx + dy * dy)
 
     if dist < CURSOR_DIRECTION_MIN_THRESHOLD or dist > CURSOR_DIRECTION_MAX_THRESHOLD:
-        return last_wasd_dir
+        return get_wasd_dir()
 
     angle = math.degrees(math.atan2(dy, dx))
 
