@@ -139,7 +139,7 @@ def on_move(x, y):
 
 
 def on_press(key):
-    global current_slot, last_wasd_dir
+    global current_slot
     if key == ACTIVATION_KEY or (hasattr(key, 'char') and key.char == ACTIVATION_KEY):
         is_active.set()
     try:
@@ -152,11 +152,11 @@ def on_press(key):
         if char in dir_map:
             with state_lock:
                 pressed_dirs.add(dir_map[char])
-                last_wasd_dir = dir_map[char]
     except AttributeError:
         pass
 
 def on_release(key):
+    global last_wasd_dir
     if key == ACTIVATION_KEY or (hasattr(key, 'char') and key.char == ACTIVATION_KEY):
         is_active.clear()
     try:
@@ -165,6 +165,7 @@ def on_release(key):
         if char in dir_map:
             with state_lock:
                 pressed_dirs.discard(dir_map[char])
+                last_wasd_dir = dir_map[char]
     except AttributeError:
         pass
 
